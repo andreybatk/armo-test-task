@@ -23,17 +23,19 @@ namespace ArmoTestTask.ViewModels
         private string _elapsedTime;
         private int _foundFiles;
         private int _totalFiles;
+        private int _currentIndex;
         private bool _isRunning;
         private Stopwatch _stopwatch;
         private DispatcherTimer _timer;
         private ObservableCollection<string> _searchList;
-        private CancellationTokenSource cts;
+        private CancellationTokenSource _cts;
 
         public MainWindowViewModel()
         {
             LoadSettings();
             StartSearch = new RelayCommand(async (x) => await OnStartSearchCommandExecuted(x), CanStartSearchCommandExecute);
             StopSearch = new RelayCommand((x) => OnStopSearchCommandExecuted(x), CanStopSearchCommandExecute);
+            ContinueSearch = new RelayCommand(async (x) => await OnContinueSearchCommandExecuted(x), CanContinueSearchCommandExecute);
         }
 
         public ICommand StartSearch { get; }
@@ -56,15 +58,65 @@ namespace ArmoTestTask.ViewModels
         {
             return IsRunning;
         }
+        private bool CanContinueSearchCommandExecute(object p)
+        {
+            return !IsRunning;
+        }
         private void OnStopSearchCommandExecuted(object p)
         {
-            cts.Cancel();
+            _cts.Cancel();
             IsRunning = false;
+        }
+        private async Task OnContinueSearchCommandExecuted(object p)
+        {
+            _cts = new CancellationTokenSource();
+            IsRunning = true;
+
+            _stopwatch = new Stopwatch();
+            _timer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
+            _timer.Tick += (s, e) => ElapsedTime = _stopwatch.Elapsed.ToString(@"hh\:mm\:ss\.fff");
+            _stopwatch.Start();
+            _timer.Start();
+
+            var files = EnumerateAllFiles(StartFolder, SearchPattern, _currentIndex);
+            try
+            {
+                await Task.Run(() =>
+                {
+                    foreach (var file in files)
+                    {
+                        _cts.Token.ThrowIfCancellationRequested();
+                        FoundFiles++;
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            SearchList.Add(file);
+                            _currentIndex++;
+                        });
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                _stopwatch.Stop();
+                _timer.Stop();
+                MessageBox.Show("Поиск отменен.", "Внимание", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Поиск закончился с ошибкой: {ex}", "Внимание", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsRunning = false;
+            }
         }
         private async Task OnStartSearchCommandExecuted(object p)
         {
             SaveSettings();
-            cts = new CancellationTokenSource();
+            _cts = new CancellationTokenSource();
             SearchList = new ObservableCollection<string>();
             IsRunning = true;
 
@@ -79,24 +131,26 @@ namespace ArmoTestTask.ViewModels
 
             FoundFiles = 0;
             TotalFiles = 0;
+            _currentIndex = 0;
 
-            var files = EnumerateAllFiles(StartFolder, SearchPattern);
+            var files = EnumerateAllFiles(StartFolder, SearchPattern, _currentIndex);
             try
             {
                 await Task.Run(() =>
                 {
                     foreach (var file in files)
                     {
-                        cts.Token.ThrowIfCancellationRequested();
+                        _cts.Token.ThrowIfCancellationRequested();
                         FoundFiles++;
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             SearchList.Add(file);
+                            _currentIndex++;
                         });
                     }
                 });
             }
-            catch (OperationCanceledException e) when (e.CancellationToken == cts.Token)
+            catch (OperationCanceledException e) when (e.CancellationToken == _cts.Token)
             {
                 _stopwatch.Stop();
                 _timer.Stop();
@@ -136,14 +190,14 @@ namespace ArmoTestTask.ViewModels
             StartFolder = section.Settings["folderPath"].Value;
             SearchPattern = section.Settings["searchPattern"].Value;
         }
-        public IEnumerable<string> EnumerateAllFiles(string path, string pattern)
+        public IEnumerable<string> EnumerateAllFiles(string path, string pattern, int skipIndex)
         {
-            cts.Token.ThrowIfCancellationRequested();
+            _cts.Token.ThrowIfCancellationRequested();
 
             IEnumerable<string> files = null;
             try
             {
-                files = Directory.EnumerateFiles(path, $"*{pattern}*");
+                files = Directory.EnumerateFiles(path, $"*{pattern}*").Skip(skipIndex);
                 TotalFiles += Directory.GetFiles(path).Count();
             }
             catch { }
@@ -166,7 +220,7 @@ namespace ArmoTestTask.ViewModels
 
             if (directories != null)
             {
-                foreach (var file in directories.SelectMany(d => EnumerateAllFiles(d, $"*{pattern}*")))
+                foreach (var file in directories.SelectMany(d => EnumerateAllFiles(d, $"*{pattern}*", _currentIndex)))
                 {
                     yield return file;
                 }

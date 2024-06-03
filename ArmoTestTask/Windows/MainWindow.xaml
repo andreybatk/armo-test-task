@@ -31,6 +31,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Стартовая папка:" VerticalAlignment="Center" Margin="5"/>
@@ -39,6 +40,7 @@
                 <TextBox Grid.Row="1" Grid.Column="1" MinWidth="150" Text="{Binding SearchPattern, UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
                 <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" IsDefault="True" MinWidth="60" Command="{Binding StartSearch, IsAsync=True}" Margin="5">Начать поиск</Button>
                 <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsCancel="True" MinWidth="60" Margin="5" Command="{Binding StopSearch}">Остановить</Button>
+                <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" IsCancel="True" MinWidth="60" Margin="5" Command="{Binding ContinueSearch}">Продолжить</Button>
             </Grid>
         </StackPanel>
         <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
