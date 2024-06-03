@@ -158,7 +158,7 @@ namespace ArmoTestTask.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Поиск закончилсяс ошибкой {ex}", "Внимание", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Поиск закончился ошибкой {ex}", "Внимание", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -190,7 +190,7 @@ namespace ArmoTestTask.ViewModels
             StartFolder = section.Settings["folderPath"].Value;
             SearchPattern = section.Settings["searchPattern"].Value;
         }
-        public IEnumerable<string> EnumerateAllFiles(string path, string pattern, int skipIndex)
+        private IEnumerable<string> EnumerateAllFiles(string path, string pattern, int skipIndex)
         {
             _cts.Token.ThrowIfCancellationRequested();
 
