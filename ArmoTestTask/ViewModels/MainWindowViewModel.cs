@@ -52,7 +52,7 @@ namespace ArmoTestTask.ViewModels
 
         private bool CanStartSearchCommandExecute(object p)
         {
-            return !IsRunning;
+            return !IsRunning && Directory.Exists(StartFolder);
         }
         private bool CanStopSearchCommandExecute(object p)
         {
@@ -60,7 +60,7 @@ namespace ArmoTestTask.ViewModels
         }
         private bool CanContinueSearchCommandExecute(object p)
         {
-            return !IsRunning;
+            return !IsRunning && Directory.Exists(StartFolder);
         }
         private void OnStopSearchCommandExecuted(object p)
         {
@@ -69,8 +69,9 @@ namespace ArmoTestTask.ViewModels
         }
         private async Task OnContinueSearchCommandExecuted(object p)
         {
-            _cts = new CancellationTokenSource();
+            SaveSettings();
             IsRunning = true;
+            _cts = new CancellationTokenSource();
 
             _stopwatch = new Stopwatch();
             _timer = new DispatcherTimer
@@ -110,15 +111,17 @@ namespace ArmoTestTask.ViewModels
             }
             finally
             {
+                if(_stopwatch.IsRunning) { _stopwatch.Stop(); }    
+                if(_timer.IsEnabled) { _timer.Stop(); }
                 IsRunning = false;
             }
         }
         private async Task OnStartSearchCommandExecuted(object p)
         {
             SaveSettings();
+            IsRunning = true;
             _cts = new CancellationTokenSource();
             SearchList = new ObservableCollection<string>();
-            IsRunning = true;
 
             _stopwatch = new Stopwatch();
             _timer = new DispatcherTimer
@@ -162,6 +165,8 @@ namespace ArmoTestTask.ViewModels
             }
             finally
             {
+                if (_stopwatch.IsRunning) { _stopwatch.Stop(); }
+                if (_timer.IsEnabled) { _timer.Stop(); }
                 IsRunning = false;
             }
         }
@@ -174,6 +179,8 @@ namespace ArmoTestTask.ViewModels
             {
                 section = new AppSettingsSection();
                 config.Sections.Add("searchSettings", section);
+                section.Settings.Add("folderPath", StartFolder);
+                section.Settings.Add("searchPattern", SearchPattern);
             }
 
             section.Settings["folderPath"].Value = StartFolder;
@@ -187,8 +194,8 @@ namespace ArmoTestTask.ViewModels
             var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             var section = config.GetSection("searchSettings") as AppSettingsSection;
 
-            StartFolder = section.Settings["folderPath"].Value;
-            SearchPattern = section.Settings["searchPattern"].Value;
+            StartFolder = section?.Settings["folderPath"]?.Value ?? "C:\\";
+            SearchPattern = section?.Settings["searchPattern"]?.Value ?? String.Empty;
         }
         private IEnumerable<string> EnumerateAllFiles(string path, string pattern, int skipIndex)
         {
